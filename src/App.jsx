@@ -21,10 +21,12 @@ const theme = createTheme({
 });
 
 function App() {
+  const basename = import.meta.env.VITE_BASE_PATH || '/sri-lanka-employment-predictor-UI';
+  
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router basename="/sri-lanka-employment-predictor-UI">
+      <Router basename={basename}>
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />

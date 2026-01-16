@@ -32,8 +32,11 @@ export default function Dashboard() {
       if (response.data.length > 0) {
         setSelectedModel(response.data[0].model_type);
       }
+      setError(null);
     } catch (err) {
-      setError('Failed to load models: ' + err.message);
+      console.error('Failed to load models:', err);
+      setError('Failed to load models. Make sure the backend API is running at ' + (import.meta.env.VITE_API_URL || 'http://192.168.1.6:8000'));
+      setModels([]);
     } finally {
       setLoading(false);
     }
