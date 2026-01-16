@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:8000',
+          target: env.VITE_API_URL || 'https://ffb6a6813594.ngrok-free.app',
           changeOrigin: true,
         }
       }

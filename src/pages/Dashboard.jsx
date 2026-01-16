@@ -35,7 +35,7 @@ export default function Dashboard() {
       setError(null);
     } catch (err) {
       console.error('Failed to load models:', err);
-      setError('Failed to load models. Make sure the backend API is running at ' + (import.meta.env.VITE_API_URL || 'http://192.168.1.6:8000'));
+      setError('Failed to load models. Make sure the backend API is running at ' + (import.meta.env.VITE_API_URL || 'https://ffb6a6813594.ngrok-free.app'));
       setModels([]);
     } finally {
       setLoading(false);
