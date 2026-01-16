@@ -16,7 +16,9 @@ import {
   Card,
   CardContent,
   CardMedia,
+  Button,
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   BarChart,
   Bar,
@@ -66,6 +68,19 @@ export default function CompareModels() {
   if (error) {
     return (
       <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4">
+            Compare Models
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchComparisonData}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        </Box>
         <Alert severity="error">Error loading comparison data: {error}</Alert>
       </Box>
     );
@@ -74,11 +89,21 @@ export default function CompareModels() {
   if (!comparisonData || comparisonData.models.length === 0) {
     return (
       <Box>
-        <Typography variant="h4" gutterBottom>
-          Compare Models
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4">
+            Compare Models
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchComparisonData}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        </Box>
         <Alert severity="info">
-          No models available for comparison. Train some models first using the "Train Model" page.
+          No models available for comparison. Train some models first using the "Train Model" page, then click refresh.
         </Alert>
       </Box>
     );

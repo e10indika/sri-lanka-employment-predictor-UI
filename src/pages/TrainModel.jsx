@@ -17,19 +17,12 @@ import {
   Grid,
   Chip,
 } from '@mui/material';
-import { modelsAPI, trainingAPI } from '../services/api';
-
-const modelConfigs = {
-  xgboost: 'XGBoost',
-  random_forest: 'Random Forest',
-  decision_tree: 'Decision Tree',
-  gradient_boosting: 'Gradient Boosting',
-  naive_bayes: 'Naive Bayes',
-  logistic_regression: 'Logistic Regression',
-};
+import { modelsAPI, trainingAPI, visualizationsAPI } from '../services/api';
 
 export default function TrainModel() {
-  const [modelType, setModelType] = useState('xgboost');
+  const [availableModels, setAvailableModels] = useState([]);
+  const [modelType, setModelType] = useState('');
+  const [selectedModels, setSelectedModels] = useState([]);
   const [performCV, setPerformCV] = useState(true);
   const [cvFolds, setCvFolds] = useState(5);
   const [performTuning, setPerformTuning] = useState(false);
@@ -39,12 +32,48 @@ export default function TrainModel() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    loadModelTypes();
+  }, []);
+
+  useEffect(() => {
     let interval;
     if (jobId && training) {
       interval = setInterval(checkStatus, 2000);
     }
     return () => clearInterval(interval);
   }, [jobId, training]);
+
+  const loadModelTypes = async () => {
+    try {
+      const response = await modelsAPI.getTypes();
+      const modelTypes = response.data.model_types || [];
+      setAvailableModels(modelTypes);
+      if (modelTypes.length > 0) {
+        setModelType(modelTypes[0].value);
+        setSelectedModels([modelTypes[0].value]);
+      }
+    } catch (err) {
+      setError('Failed to load model types: ' + err.message);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedModels.length === availableModels.length) {
+      setSelectedModels([]);
+    } else {
+      setSelectedModels(availableModels.map(m => m.value));
+    }
+  };
+
+  const handleModelToggle = (modelValue) => {
+    setSelectedModels(prev => {
+      if (prev.includes(modelValue)) {
+        return prev.filter(m => m !== modelValue);
+      } else {
+        return [...prev, modelValue];
+      }
+    });
+  };
 
   const checkStatus = async () => {
     try {
@@ -62,22 +91,59 @@ export default function TrainModel() {
     }
   };
 
+  const waitForCompletion = async (jobId) => {
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(async () => {
+        try {
+          const response = await trainingAPI.getStatus(jobId);
+          setStatus(response.data);
+
+          if (response.data.status === 'completed') {
+            clearInterval(interval);
+            resolve();
+          } else if (response.data.status === 'failed') {
+            clearInterval(interval);
+            setError(response.data.error);
+            reject(new Error(response.data.error));
+          }
+        } catch (err) {
+          clearInterval(interval);
+          reject(err);
+        }
+      }, 2000);
+    });
+  };
+
   const handleTrain = async () => {
+    if (selectedModels.length === 0) {
+      setError('Please select at least one model to train');
+      return;
+    }
+
     try {
       setTraining(true);
       setError(null);
       setStatus(null);
 
-      const response = await trainingAPI.start({
-        model_type: modelType,
-        perform_cv: performCV,
-        cv_folds: cvFolds,
-        perform_tuning: performTuning,
-      });
+      // Train all selected models sequentially
+      for (const model of selectedModels) {
+        const response = await trainingAPI.start({
+          model_type: model,
+          perform_cv: performCV,
+          cv_folds: cvFolds,
+          perform_tuning: performTuning,
+        });
 
-      setJobId(response.data.job_id);
+        setJobId(response.data.job_id);
+        setModelType(model); // Update current model being trained
+        
+        // Wait for this model to complete before starting the next one
+        await waitForCompletion(response.data.job_id);
+      }
+      
+      setTraining(false);
     } catch (err) {
-      setError('Failed to start training: ' + err.message);
+      setError('Failed to complete training: ' + err.message);
       setTraining(false);
     }
   };
@@ -88,7 +154,7 @@ export default function TrainModel() {
         Train Employment Prediction Model
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph>
-        Train a new model to predict employment status based on Sri Lankan labour force statistics.
+        Train new models to predict employment status based on Sri Lankan labour force statistics.
       </Typography>
 
       {error && (
@@ -104,21 +170,33 @@ export default function TrainModel() {
               Training Configuration
             </Typography>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Model Type</InputLabel>
-              <Select
-                value={modelType}
-                onChange={(e) => setModelType(e.target.value)}
-                label="Model Type"
-                disabled={training}
-              >
-                {Object.entries(modelConfigs).map(([key, label]) => (
-                  <MenuItem key={key} value={key}>
-                    {label}
-                  </MenuItem>
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1">Select Models to Train</Typography>
+                <Button
+                  size="small"
+                  onClick={handleSelectAll}
+                  disabled={training}
+                >
+                  {selectedModels.length === availableModels.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {availableModels.map((model) => (
+                  <FormControlLabel
+                    key={model.value}
+                    control={
+                      <Checkbox
+                        checked={selectedModels.includes(model.value)}
+                        onChange={() => handleModelToggle(model.value)}
+                        disabled={training}
+                      />
+                    }
+                    label={model.label}
+                  />
                 ))}
-              </Select>
-            </FormControl>
+              </Box>
+            </Box>
 
             <FormControlLabel
               control={
@@ -164,10 +242,10 @@ export default function TrainModel() {
               variant="contained"
               fullWidth
               onClick={handleTrain}
-              disabled={training}
+              disabled={training || selectedModels.length === 0}
               sx={{ mt: 3 }}
             >
-              {training ? 'Training...' : 'Start Training'}
+              {training ? 'Training...' : `Train ${selectedModels.length} Model${selectedModels.length !== 1 ? 's' : ''}`}
             </Button>
           </Paper>
         </Grid>
@@ -212,26 +290,61 @@ export default function TrainModel() {
                 {status.results && (
                   <Box sx={{ mt: 3 }}>
                     <Typography variant="h6" gutterBottom>
-                      Results
+                      Training Results
                     </Typography>
-                    <Typography variant="body2">
-                      Model: {status.results.model_name}
-                    </Typography>
-                    <Typography variant="body2">
-                      Accuracy: {(status.results.metrics.accuracy * 100).toFixed(2)}%
-                    </Typography>
-                    <Typography variant="body2">
-                      F1-Score: {(status.results.metrics.f1_weighted * 100).toFixed(2)}%
-                    </Typography>
-                    {status.results.cv_scores && (
-                      <Typography variant="body2">
-                        CV Accuracy:{' '}
-                        {(
-                          status.results.cv_scores.reduce((a, b) => a + b, 0) /
-                          status.results.cv_scores.length
-                        ).toFixed(4)}
-                      </Typography>
-                    )}
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" color="text.secondary">
+                          Model: <strong>{status.results.model_name}</strong>
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          Accuracy: <strong>{(status.results.metrics.accuracy * 100).toFixed(2)}%</strong>
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          Precision: <strong>{(status.results.metrics.precision * 100).toFixed(2)}%</strong>
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          Recall: <strong>{(status.results.metrics.recall * 100).toFixed(2)}%</strong>
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          F1 Score: <strong>{(status.results.metrics.f1_weighted * 100).toFixed(2)}%</strong>
+                        </Typography>
+                      </Grid>
+                      {status.results.cv_scores && status.results.cv_scores.length > 0 && (
+                        <>
+                          <Grid item xs={12}>
+                            <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                              Cross-Validation
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2">
+                              CV Mean: <strong>{(status.results.cv_scores.reduce((a, b) => a + b, 0) / status.results.cv_scores.length * 100).toFixed(2)}%</strong>
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2">
+                              CV Std: <strong>{(Math.sqrt(status.results.cv_scores.map(x => Math.pow(x - status.results.cv_scores.reduce((a, b) => a + b, 0) / status.results.cv_scores.length, 2)).reduce((a, b) => a + b, 0) / status.results.cv_scores.length) * 100).toFixed(2)}%</strong>
+                            </Typography>
+                          </Grid>
+                        </>
+                      )}
+                      {status.results.training_time && (
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Training Time: <strong>{status.results.training_time.toFixed(2)}s</strong>
+                          </Typography>
+                        </Grid>
+                      )}
+                    </Grid>
                   </Box>
                 )}
               </CardContent>
@@ -239,6 +352,100 @@ export default function TrainModel() {
           )}
         </Grid>
       </Grid>
+
+      {/* Visualizations Section */}
+      {status && status.status === 'completed' && status.results && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" gutterBottom>
+            Model Visualizations
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Confusion Matrix
+                  </Typography>
+                  <Box
+                    component="img"
+                    key={`cm-${modelType}`}
+                    src={visualizationsAPI.getConfusionMatrix(modelType)}
+                    alt="Confusion Matrix"
+                    sx={{ width: '100%', height: 'auto' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: 'none', mt: 2, textAlign: 'center' }}
+                  >
+                    Visualization not yet available
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Feature Importance
+                  </Typography>
+                  <Box
+                    component="img"
+                    key={`fi-${modelType}`}
+                    src={visualizationsAPI.getFeatureImportance(modelType)}
+                    alt="Feature Importance"
+                    sx={{ width: '100%', height: 'auto' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: 'none', mt: 2, textAlign: 'center' }}
+                  >
+                    Visualization not yet available
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    SHAP Summary
+                  </Typography>
+                  <Box
+                    component="img"
+                    key={`shap-${modelType}`}
+                    src={visualizationsAPI.getShapSummary(modelType)}
+                    alt="SHAP Summary"
+                    sx={{ width: '100%', height: 'auto', maxHeight: '600px', objectFit: 'contain' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: 'none', mt: 2, textAlign: 'center' }}
+                  >
+                    Visualization not yet available
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -11,7 +11,10 @@ import {
   FormControl,
   InputLabel,
   Alert,
+  Button,
+  IconButton,
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { modelsAPI, visualizationsAPI } from '../services/api';
 
 export default function Dashboard() {
@@ -57,11 +60,21 @@ export default function Dashboard() {
   if (models.length === 0) {
     return (
       <Box>
-        <Typography variant="h4" gutterBottom>
-          Model Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4">
+            Model Dashboard
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadModels}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        </Box>
         <Alert severity="info">
-          No trained models found. Please train a model first.
+          No trained models found. Please train a model first, then click refresh.
         </Alert>
       </Box>
     );
@@ -69,9 +82,14 @@ export default function Dashboard() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Model Dashboard
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4">
+          Model Dashboard
+        </Typography>
+        <IconButton onClick={loadModels} disabled={loading} color="primary">
+          <RefreshIcon />
+        </IconButton>
+      </Box>
       <Typography variant="body1" color="text.secondary" paragraph>
         View trained models' performance metrics and explainability visualizations.
       </Typography>
@@ -94,7 +112,7 @@ export default function Dashboard() {
       </Box>
 
       {selectedModel && (
-        <Grid container spacing={3}>
+        <Grid container spacing={3} key={selectedModel}>
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
@@ -103,6 +121,7 @@ export default function Dashboard() {
                 </Typography>
                 <Box
                   component="img"
+                  key={`cm-${selectedModel}`}
                   src={visualizationsAPI.getConfusionMatrix(selectedModel)}
                   alt="Confusion Matrix"
                   sx={{ width: '100%', height: 'auto' }}
@@ -130,6 +149,7 @@ export default function Dashboard() {
                 </Typography>
                 <Box
                   component="img"
+                  key={`fi-${selectedModel}`}
                   src={visualizationsAPI.getFeatureImportance(selectedModel)}
                   alt="Feature Importance"
                   sx={{ width: '100%', height: 'auto' }}
@@ -157,6 +177,7 @@ export default function Dashboard() {
                 </Typography>
                 <Box
                   component="img"
+                  key={`shap-${selectedModel}`}
                   src={visualizationsAPI.getShapSummary(selectedModel)}
                   alt="SHAP Summary"
                   sx={{ width: '100%', height: 'auto', maxHeight: '600px', objectFit: 'contain' }}

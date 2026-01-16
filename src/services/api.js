@@ -12,6 +12,7 @@ const api = axios.create({
 // Models API
 export const modelsAPI = {
   getAll: () => api.get('/api/models/'),
+  getTypes: () => api.get('/api/models/types'),
   getConfigs: () => api.get('/api/models/configs'),
   getDetails: (modelType) => api.get(`/api/models/${modelType}/details`),
   compare: () => api.get('/api/models/compare'),
@@ -38,6 +39,7 @@ export const predictionsAPI = {
 export const datasetsAPI = {
   getInfo: () => api.get('/api/datasets/info'),
   getSample: (n = 10) => api.get(`/api/datasets/sample?n=${n}`),
+  getRow: (rowNumber) => api.get(`/api/datasets/row/${rowNumber}`),
   getColumnInfo: (columnName) => api.get(`/api/datasets/column/${columnName}`),
   getCorrelation: () => api.get('/api/datasets/correlation'),
 };
