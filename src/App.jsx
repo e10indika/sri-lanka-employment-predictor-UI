@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import DatasetView from './pages/DatasetView';
+import DataPreprocessing from './pages/DataPreprocessing';
 import TrainModel from './pages/TrainModel';
 import Predict from './pages/Predict';
 import CompareModels from './pages/CompareModels';
@@ -32,6 +33,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dataset" element={<DatasetView />} />
+            <Route path="/preprocess" element={<DataPreprocessing />} />
             <Route path="/train" element={<TrainModel />} />
             <Route path="/predict" element={<Predict />} />
             <Route path="/compare" element={<CompareModels />} />

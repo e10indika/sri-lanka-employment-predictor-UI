@@ -16,6 +16,7 @@ import {
   CardContent,
   Grid,
   Chip,
+  TextField,
 } from '@mui/material';
 import { modelsAPI, trainingAPI, visualizationsAPI } from '../services/api';
 
@@ -26,6 +27,12 @@ export default function TrainModel() {
   const [performCV, setPerformCV] = useState(true);
   const [cvFolds, setCvFolds] = useState(5);
   const [performTuning, setPerformTuning] = useState(false);
+  const [useParamGrid, setUseParamGrid] = useState(false);
+  const [paramGrid, setParamGrid] = useState({
+    max_depth: '5,10',
+    learning_rate: '0.05,0.1',
+    n_estimators: '200,300',
+  });
   const [training, setTraining] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [status, setStatus] = useState(null);
@@ -127,12 +134,32 @@ export default function TrainModel() {
 
       // Train all selected models sequentially
       for (const model of selectedModels) {
-        const response = await trainingAPI.start({
+        const payload = {
           model_type: model,
-          perform_cv: performCV,
-          cv_folds: cvFolds,
           perform_tuning: performTuning,
-        });
+          use_param_grid: useParamGrid,
+        };
+        
+        // Add CV options if enabled
+        if (performCV) {
+          payload.cv_folds = cvFolds;
+        }
+        
+        // Add param_grid if use_param_grid is enabled
+        if (useParamGrid && performTuning) {
+          const parsedGrid = {};
+          Object.entries(paramGrid).forEach(([key, value]) => {
+            // Parse comma-separated values to array of numbers
+            const values = value.split(',').map(v => {
+              const trimmed = v.trim();
+              return isNaN(trimmed) ? trimmed : parseFloat(trimmed);
+            });
+            parsedGrid[key] = values;
+          });
+          payload.param_grid = parsedGrid;
+        }
+
+        const response = await trainingAPI.start(payload);
 
         setJobId(response.data.job_id);
         setModelType(model); // Update current model being trained
@@ -237,6 +264,43 @@ export default function TrainModel() {
               }
               label="Hyperparameter Tuning (slower)"
             />
+            
+            {performTuning && (
+              <Box sx={{ ml: 4, mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={useParamGrid}
+                      onChange={(e) => setUseParamGrid(e.target.checked)}
+                      disabled={training}
+                    />
+                  }
+                  label="Use Custom Parameter Grid"
+                />
+                
+                {useParamGrid && (
+                  <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                    <Typography variant="caption" color="text.secondary" gutterBottom>
+                      Enter comma-separated values for each parameter:
+                    </Typography>
+                    {Object.entries(paramGrid).map(([param, value]) => (
+                      <TextField
+                        key={param}
+                        fullWidth
+                        size="small"
+                        label={param}
+                        value={value}
+                        onChange={(e) => setParamGrid(prev => ({ ...prev, [param]: e.target.value }))}
+                        disabled={training}
+                        placeholder="e.g., 5,10,15"
+                        sx={{ mt: 1 }}
+                        helperText={`Values to test for ${param}`}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             <Button
               variant="contained"
@@ -250,8 +314,9 @@ export default function TrainModel() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          {status && (
+        {/* Training Progress Section */}
+        {status && (
+          <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -286,71 +351,197 @@ export default function TrainModel() {
                   }
                   sx={{ mt: 2 }}
                 />
-
-                {status.results && (
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Training Results
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <Typography variant="body2" color="text.secondary">
-                          Model: <strong>{status.results.model_name}</strong>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Accuracy: <strong>{(status.results.metrics.accuracy * 100).toFixed(2)}%</strong>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Precision: <strong>{(status.results.metrics.precision * 100).toFixed(2)}%</strong>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Recall: <strong>{(status.results.metrics.recall * 100).toFixed(2)}%</strong>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">
-                          F1 Score: <strong>{(status.results.metrics.f1_weighted * 100).toFixed(2)}%</strong>
-                        </Typography>
-                      </Grid>
-                      {status.results.cv_scores && status.results.cv_scores.length > 0 && (
-                        <>
-                          <Grid item xs={12}>
-                            <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                              Cross-Validation
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              CV Mean: <strong>{(status.results.cv_scores.reduce((a, b) => a + b, 0) / status.results.cv_scores.length * 100).toFixed(2)}%</strong>
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="body2">
-                              CV Std: <strong>{(Math.sqrt(status.results.cv_scores.map(x => Math.pow(x - status.results.cv_scores.reduce((a, b) => a + b, 0) / status.results.cv_scores.length, 2)).reduce((a, b) => a + b, 0) / status.results.cv_scores.length) * 100).toFixed(2)}%</strong>
-                            </Typography>
-                          </Grid>
-                        </>
-                      )}
-                      {status.results.training_time && (
-                        <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            Training Time: <strong>{status.results.training_time.toFixed(2)}s</strong>
-                          </Typography>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Box>
-                )}
               </CardContent>
             </Card>
-          )}
-        </Grid>
+          </Grid>
+        )}
+
+        {/* Training Details Section */}
+        {status && status.results && status.results.training_details && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Training Details
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary">
+                      Model: <strong>{status.results.model_name}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Train Samples: <strong>{status.results.training_details.train_samples}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Test Samples: <strong>{status.results.training_details.test_samples}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Features: <strong>{status.results.training_details.features}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      CV Folds: <strong>{status.results.training_details.cv_folds || 'N/A'}</strong>
+                    </Typography>
+                  </Grid>
+                  {status.results.training_details.hyperparameter_tuning && (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        Hyperparameter Tuning: <strong>Enabled</strong>
+                      </Typography>
+                      {status.results.training_details.tuned_parameters && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          Tuned: {status.results.training_details.tuned_parameters.join(', ')}
+                        </Typography>
+                      )}
+                    </Grid>
+                  )}
+                  {status.results.training_time && (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Training Time: <strong>{status.results.training_time.toFixed(2)}s</strong>
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Performance Metrics Section */}
+        {status && status.results && status.results.metrics && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Performance Metrics
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Accuracy: <strong>{(status.results.metrics.accuracy * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      F1 Score (Weighted): <strong>{(status.results.metrics.f1_weighted * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Precision (Weighted): <strong>{(status.results.metrics.precision_weighted * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Recall (Weighted): <strong>{(status.results.metrics.recall_weighted * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Precision (Macro): <strong>{(status.results.metrics.precision_macro * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Recall (Macro): <strong>{(status.results.metrics.recall_macro * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      F1 Score (Macro): <strong>{(status.results.metrics.f1_macro * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Cross-Validation Scores Section */}
+        {status && status.results && status.results.cv_scores && status.results.cv_scores.length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Cross-Validation Scores
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      CV Mean: <strong>{(status.results.cv_mean * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      CV Std: <strong>{(status.results.cv_std * 100).toFixed(2)}%</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary">
+                      Fold Scores: {status.results.cv_scores.map(s => (s * 100).toFixed(2) + '%').join(', ')}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Best Hyperparameters Section */}
+        {status && status.results && status.results.best_hyperparameters && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Best Hyperparameters
+                </Typography>
+                <Grid container spacing={2}>
+                  {Object.entries(status.results.best_hyperparameters).map(([key, value]) => (
+                    <Grid item xs={6} key={key}>
+                      <Typography variant="body2" color="text.secondary">
+                        {key}: <strong>{typeof value === 'number' ? value : String(value)}</strong>
+                      </Typography>
+                    </Grid>
+                  ))}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Feature Importance Section */}
+        {status && status.results && status.results.feature_importance && (
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Feature Importance
+                </Typography>
+                <Grid container spacing={2}>
+                  {Object.entries(status.results.feature_importance)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([feature, importance]) => (
+                      <Grid item xs={6} md={3} key={feature}>
+                        <Typography variant="body2">
+                          {feature}: <strong>{importance}</strong>
+                        </Typography>
+                      </Grid>
+                    ))}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+
       </Grid>
 
       {/* Visualizations Section */}

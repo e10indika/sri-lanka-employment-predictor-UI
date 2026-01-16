@@ -42,6 +42,14 @@ export const datasetsAPI = {
   getRow: (rowNumber) => api.get(`/api/datasets/row/${rowNumber}`),
   getColumnInfo: (columnName) => api.get(`/api/datasets/column/${columnName}`),
   getCorrelation: () => api.get('/api/datasets/correlation'),
+  preprocess: (formData) => {
+    return axios.post(`${API_BASE_URL}/api/datasets/preprocess`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  preprocessExisting: () => api.post('/api/datasets/preprocess'),
 };
 
 // Visualizations API
