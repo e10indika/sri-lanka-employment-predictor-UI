@@ -24,7 +24,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename="/sri-lanka-employment-predictor-UI">
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
