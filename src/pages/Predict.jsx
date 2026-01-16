@@ -17,21 +17,82 @@ import {
 } from '@mui/material';
 import { modelsAPI, predictionsAPI } from '../services/api';
 
-const featureLabels = {
-  DISTRICT: 'District (1-25)',
-  SEX: 'Sex (1=Male, 2=Female)',
-  AGE: 'Age',
-  MARITAL: 'Marital Status (1-6)',
-  EDU: 'Education Level (1-20)',
-  Language_Profile_Encoded: 'Language Proficiency (0-7)',
-  Disability_Category_Encoded: 'Disability Category (0-6)',
+const featureDefinitions = {
+  DISTRICT: {
+    label: "District",
+    type: "select",
+    options: {
+      "11": "Colombo", "12": "Gampaha", "13": "Kaluthara",
+      "21": "Kandy", "22": "Matale", "23": "Nuwara Eliya",
+      "31": "Galle", "32": "Mathara", "33": "Hambanthota",
+      "41": "Jaffna", "42": "Mannar", "43": "Vavuniya", "44": "Mulathivu", "45": "Kilinochchi",
+      "51": "Batticaloa", "52": "Ampara", "53": "Trincomalee",
+      "61": "Kurunegala", "62": "Puttalam",
+      "71": "Anuradhapura", "72": "Polonnaruwa",
+      "81": "Badulla", "82": "Moneragala",
+      "91": "Rathnapura", "92": "Kegalle"
+    }
+  },
+  SEX: {
+    label: "Sex",
+    type: "select",
+    options: {
+      "1": "Male",
+      "2": "Female"
+    }
+  },
+  AGE: {
+    label: "Age",
+    type: "number",
+    min: 15,
+    max: 99
+  },
+  MARITAL: {
+    label: "Marital Status",
+    type: "select",
+    options: {
+      "1": "Never Married",
+      "2": "Married",
+      "3": "Widowed",
+      "5": "Divorced/Separated"
+    }
+  },
+  EDU: {
+    label: "Education Level",
+    type: "select",
+    options: {
+      "0": "Studying/Studied Grade 1", "1": "Passed Grade 1", "2": "Passed Grade 2",
+      "3": "Passed Grade 3", "4": "Passed Grade 4", "5": "Passed Grade 5",
+      "6": "Passed Grade 6", "7": "Passed Grade 7", "8": "Passed Grade 8",
+      "9": "Passed Grade 9", "10": "Passed Grade 10", "11": "Passed G.C.E (O/L) / N.C.E",
+      "12": "Passed Grade 12", "13": "Passed G.C.E (A/L) / H.N.C.E", "14": "Passed G.A.Q. / G.S.Q",
+      "15": "Degree", "16": "Postgraduate Degree / Diploma", "17": "Special Educational Institutions",
+      "18": "Post Graduate - M", "19": "Post Graduate - PhD"
+    }
+  },
+  Language_Profile_Encoded: {
+    label: "Language Profile",
+    type: "select",
+    options: {
+      "0": "ENG", "1": "ENG+SIN", "2": "ENG+SIN+TAMIL",
+      "3": "ENG+TAMIL", "4": "None", "5": "SIN",
+      "6": "SIN+TAMIL", "7": "TAMIL"
+    }
+  },
+  Disability_Category_Encoded: {
+    label: "Disability Category",
+    type: "select",
+    options: {
+      "0": "None", "1": "Mild", "2": "Moderate"
+    }
+  }
 };
 
 export default function Predict() {
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [features, setFeatures] = useState({
-    DISTRICT: 1,
+    DISTRICT: 11,
     SEX: 1,
     AGE: 25,
     MARITAL: 1,
@@ -126,21 +187,44 @@ export default function Predict() {
 
             <Divider sx={{ my: 2 }} />
 
-            {Object.keys(features).map((feature) => (
-              <TextField
-                key={feature}
-                fullWidth
-                label={featureLabels[feature] || feature}
-                type="number"
-                value={features[feature]}
-                onChange={(e) => handleFeatureChange(feature, e.target.value)}
-                sx={{ mb: 2 }}
-                inputProps={{
-                  step: feature === 'AGE' ? 1 : 1,
-                  min: 0,
-                }}
-              />
-            ))}
+            {Object.keys(features).map((feature) => {
+              const def = featureDefinitions[feature];
+              
+              if (def.type === 'select') {
+                return (
+                  <FormControl key={feature} fullWidth sx={{ mb: 2 }}>
+                    <InputLabel>{def.label}</InputLabel>
+                    <Select
+                      value={features[feature]}
+                      onChange={(e) => handleFeatureChange(feature, e.target.value)}
+                      label={def.label}
+                    >
+                      {Object.entries(def.options).map(([value, label]) => (
+                        <MenuItem key={value} value={parseInt(value)}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                );
+              }
+              
+              return (
+                <TextField
+                  key={feature}
+                  fullWidth
+                  label={def.label}
+                  type="number"
+                  value={features[feature]}
+                  onChange={(e) => handleFeatureChange(feature, e.target.value)}
+                  sx={{ mb: 2 }}
+                  inputProps={{
+                    min: def.min || 0,
+                    max: def.max || 999,
+                  }}
+                />
+              );
+            })}
 
             <Button
               variant="contained"
