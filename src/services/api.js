@@ -60,6 +60,10 @@ export const visualizationsAPI = {
     `${API_BASE_URL}/api/visualizations/${modelType}/feature-importance`,
   getShapSummary: (modelType) => 
     `${API_BASE_URL}/api/visualizations/${modelType}/shap-summary`,
+  getLimeExplanation: (modelType) => 
+    `${API_BASE_URL}/api/visualizations/${modelType}/lime-explanation`,
+  getPartialDependence: (modelType) => 
+    `${API_BASE_URL}/api/visualizations/${modelType}/partial-dependence`,
   getStatus: (modelType) => api.get(`/api/visualizations/${modelType}/status`),
 };
 

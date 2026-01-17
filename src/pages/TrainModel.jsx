@@ -607,7 +607,7 @@ export default function TrainModel() {
               </Card>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -618,6 +618,62 @@ export default function TrainModel() {
                     key={`shap-${modelType}`}
                     src={visualizationsAPI.getShapSummary(modelType)}
                     alt="SHAP Summary"
+                    sx={{ width: '100%', height: 'auto' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: 'none', mt: 2, textAlign: 'center' }}
+                  >
+                    Visualization not yet available
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    LIME Explanation
+                  </Typography>
+                  <Box
+                    component="img"
+                    key={`lime-${modelType}`}
+                    src={visualizationsAPI.getLimeExplanation(modelType)}
+                    alt="LIME Explanation"
+                    sx={{ width: '100%', height: 'auto' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: 'none', mt: 2, textAlign: 'center' }}
+                  >
+                    Visualization not yet available
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Partial Dependence Plot
+                  </Typography>
+                  <Box
+                    component="img"
+                    key={`pdp-${modelType}`}
+                    src={visualizationsAPI.getPartialDependence(modelType)}
+                    alt="Partial Dependence"
                     sx={{ width: '100%', height: 'auto', maxHeight: '600px', objectFit: 'contain' }}
                     onError={(e) => {
                       e.target.style.display = 'none';
